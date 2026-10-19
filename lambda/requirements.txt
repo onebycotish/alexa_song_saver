@@ -1,0 +1,5 @@
+ask-sdk-core==1.19.0
+requests==2.32.4
+# The Alexa-hosted Python 3.8 runtime's ssl module uses OpenSSL 1.0.2, and
+# urllib3 2.x refuses to import with anything older than OpenSSL 1.1.1.
+urllib3==1.26.20

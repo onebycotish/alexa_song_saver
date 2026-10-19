@@ -1,0 +1,49 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "song saver",
+      "intents": [
+        {
+          "name": "LikeSongIntent",
+          "samples": [
+            "like this song",
+            "like this track",
+            "like this",
+            "like it",
+            "like the song",
+            "save this song",
+            "save this track",
+            "save this",
+            "save it",
+            "add this to my liked songs",
+            "add this song to my liked songs",
+            "add this track to my liked songs",
+            "add it to my liked songs",
+            "add this to liked songs"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

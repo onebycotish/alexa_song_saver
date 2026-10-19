@@ -1,0 +1,15 @@
+# Secrets: never commit
+lambda/secrets.json
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# ASK CLI state
+.ask/
+
+# macOS
+.DS_Store
