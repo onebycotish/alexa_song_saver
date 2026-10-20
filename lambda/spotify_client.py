@@ -39,7 +39,7 @@ class SpotifyUnavailable(Exception):
 
 
 class SaveOutcomeUnknown(Exception):
-    """The save request was sent but no answer came back, so it may have worked."""
+    """The save or remove request was sent but no answer came back, so it may have worked."""
 
 
 class SpotifyClient:
@@ -74,6 +74,11 @@ class SpotifyClient:
         """Add a track to Liked Songs. Saving an already-Liked track is harmless."""
         # A read timeout means the save was sent but unanswered, so it may have worked.
         self._check(self._send("PUT", LIBRARY_URL, params={"uris": uri}, headers=self._headers(),
+                               on_read_timeout=SaveOutcomeUnknown))
+
+    def unlike(self, uri):
+        """Remove a track from Liked Songs. Removing a track that isn't Liked is harmless."""
+        self._check(self._send("DELETE", LIBRARY_URL, params={"uris": uri}, headers=self._headers(),
                                on_read_timeout=SaveOutcomeUnknown))
 
     def _check(self, response):

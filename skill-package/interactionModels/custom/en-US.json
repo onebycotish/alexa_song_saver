@@ -23,6 +23,21 @@
           ]
         },
         {
+          "name": "UnlikeSongIntent",
+          "samples": [
+            "remove this song",
+            "remove this track",
+            "remove this",
+            "remove it",
+            "unlike this song",
+            "unlike this",
+            "unlike it",
+            "remove this from my liked songs",
+            "remove this song from my liked songs",
+            "take this out of my liked songs"
+          ]
+        },
+        {
           "name": "AMAZON.HelpIntent",
           "samples": []
         },

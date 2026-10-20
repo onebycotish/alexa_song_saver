@@ -19,5 +19,10 @@ def test_handlers_serve_exactly_the_model_intents():
     assert set(HANDLED_INTENTS) == model_intents
 
 
+def test_no_utterance_belongs_to_two_intents():
+    samples = [s for i in load("en-US")["interactionModel"]["languageModel"]["intents"] for s in i["samples"]]
+    assert len(samples) == len(set(samples))
+
+
 def test_invocation_name_is_song_saver():
     assert load("en-US")["interactionModel"]["languageModel"]["invocationName"] == "song saver"

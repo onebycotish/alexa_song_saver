@@ -70,6 +70,25 @@ def test_like_puts_the_track_uri_to_the_library(spotify):
     assert call.request.params == {"uris": "spotify:track:2fuCquhmrzHpu5xcA1ci9x"}
 
 
+def test_unlike_deletes_the_track_uri_from_the_library(spotify):
+    spotify.token()
+    spotify.library_remove()
+
+    make_client().unlike("spotify:track:2fuCquhmrzHpu5xcA1ci9x")
+
+    (call,) = spotify.calls_to(responses.DELETE, LIBRARY_URL)
+    assert call.request.params == {"uris": "spotify:track:2fuCquhmrzHpu5xcA1ci9x"}
+    assert call.request.req_kwargs["timeout"] == TIMEOUT_SECONDS
+
+
+def test_remove_read_timeout_means_outcome_unknown(spotify):
+    spotify.token()
+    spotify.fail(responses.DELETE, LIBRARY_URL, exc=requests.exceptions.ReadTimeout())
+
+    with pytest.raises(SaveOutcomeUnknown):
+        make_client().unlike("spotify:track:2fuCquhmrzHpu5xcA1ci9x")
+
+
 def refresh_tokens_sent(spotify):
     return [c.request.body for c in spotify.calls_to(responses.POST, TOKEN_URL)]
 

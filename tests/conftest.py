@@ -55,8 +55,9 @@ def spotify():
 
 @pytest.fixture
 def spotify_ok(spotify):
-    """Spotify answers the happy path: token, a playing track, and a successful save."""
+    """Spotify answers the happy path: token, a playing track, and a successful save or removal."""
     spotify.token()
     spotify.currently_playing()
     spotify.library_save()
+    spotify.library_remove()
     return spotify

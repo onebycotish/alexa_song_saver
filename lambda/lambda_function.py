@@ -21,22 +21,25 @@ from spotify_client import (
 )
 
 LIKE_INTENT = "LikeSongIntent"
+UNLIKE_INTENT = "UnlikeSongIntent"
 HELP_INTENTS = ("AMAZON.HelpIntent", "AMAZON.FallbackIntent")
 QUIET_INTENTS = ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent")
 
 # Every intent the handlers serve; must match the interaction model exactly.
-HANDLED_INTENTS = (LIKE_INTENT,) + HELP_INTENTS + QUIET_INTENTS
+HANDLED_INTENTS = (LIKE_INTENT, UNLIKE_INTENT) + HELP_INTENTS + QUIET_INTENTS
 
-HELP_TEXT = "Say 'Alexa, ask song saver to like this song', or just 'Alexa, open song saver'."
+HELP_TEXT = "Say 'Alexa, ask song saver to like this song' or 'remove this song', or just 'Alexa, open song saver'."
 SAVED_TEXT = "Saved {title} by {artist} to your Liked Songs."
+REMOVED_TEXT = "Removed {title} by {artist} from your Liked Songs."
 NOT_SET_UP_TEXT = "Song Saver isn't set up yet. Check secrets.json."
 NOTHING_PLAYING_TEXT = "I don't see anything playing on Spotify right now."
-NOT_A_TRACK_TEXT = "That isn't something I can add to your Liked Songs."
+NOT_A_TRACK_TEXT = "That isn't a song I can change in your Liked Songs."
 AUTHORIZATION_EXPIRED_TEXT = "Your Spotify authorization has expired. Run the refresh token script again."
 TOKEN_REJECTED_TEXT = "Spotify rejected your refresh token. Check secrets.json, or run the refresh token script again."
 FORBIDDEN_TEXT = "Spotify refused the request. Check that your account still has Premium."
 UNAVAILABLE_TEXT = "Spotify isn't responding right now. Try again in a moment."
 NOT_SURE_SAVED_TEXT = "I'm not sure that saved. Check your Liked Songs."
+NOT_SURE_REMOVED_TEXT = "I'm not sure that was removed. Check your Liked Songs."
 
 # Spotify refresh tokens last six months from Authorization; refreshing doesn't extend them.
 AUTHORIZATION_LIFETIME = datetime.timedelta(days=180)
@@ -79,13 +82,22 @@ def _end(handler_input, speech=None):
     can_handle_func=lambda hi: is_request_type("LaunchRequest")(hi) or is_intent_name(LIKE_INTENT)(hi)
 )
 def like_handler(handler_input):
+    return _change_current_track(handler_input, SpotifyClient.like, SAVED_TEXT, NOT_SURE_SAVED_TEXT)
+
+
+@sb.request_handler(can_handle_func=is_intent_name(UNLIKE_INTENT))
+def unlike_handler(handler_input):
+    return _change_current_track(handler_input, SpotifyClient.unlike, REMOVED_TEXT, NOT_SURE_REMOVED_TEXT)
+
+
+def _change_current_track(handler_input, change, done_text, not_sure_text):
     try:
         config = load_config()
     except ConfigError as e:
         logger.warning("Not set up: %s", e)
         return _end(handler_input, NOT_SET_UP_TEXT)
     try:
-        speech = _like_current_track(_spotify(config))
+        speech = _apply_to_current_track(_spotify(config), change, done_text)
     except TokenRejected:
         speech = AUTHORIZATION_EXPIRED_TEXT if _authorization_lapsed(config) else TOKEN_REJECTED_TEXT
     except Forbidden:
@@ -93,19 +105,19 @@ def like_handler(handler_input):
     except SpotifyUnavailable:
         speech = UNAVAILABLE_TEXT
     except SaveOutcomeUnknown:
-        speech = NOT_SURE_SAVED_TEXT
+        speech = not_sure_text
     return _end(handler_input, speech)
 
 
-def _like_current_track(spotify):
+def _apply_to_current_track(spotify, change, done_text):
     try:
         track = spotify.get_current_track()
     except NothingPlaying:
         return NOTHING_PLAYING_TEXT
     except NotATrack:
         return NOT_A_TRACK_TEXT
-    spotify.like(track.uri)
-    return SAVED_TEXT.format(title=_ssml_text(track.title), artist=_ssml_text(track.artist))
+    change(spotify, track.uri)
+    return done_text.format(title=_ssml_text(track.title), artist=_ssml_text(track.artist))
 
 
 def _authorization_lapsed(config):
@@ -114,7 +126,7 @@ def _authorization_lapsed(config):
 
 @sb.request_handler(can_handle_func=_any_intent(HELP_INTENTS))
 def help_handler(handler_input):
-    # Fallback deliberately never Likes: a misheard phrase must not save a track.
+    # Fallback deliberately never Likes or Unlikes: a misheard phrase must not change Liked Songs.
     return _end(handler_input, HELP_TEXT)
 
 

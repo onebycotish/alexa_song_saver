@@ -63,6 +63,9 @@ class FakeSpotify:
     def library_save(self, status=200):
         self.mock.add(responses.PUT, LIBRARY_URL, status=status)
 
+    def library_remove(self, status=200):
+        self.mock.add(responses.DELETE, LIBRARY_URL, status=status)
+
     def fail(self, method, url, status=None, exc=None):
         """Make one call fail with an HTTP status or a network exception (e.g. a timeout)."""
         if exc is not None:

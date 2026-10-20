@@ -15,6 +15,7 @@ from lambda_function import (
     NOT_A_TRACK_TEXT,
     NOT_SET_UP_TEXT,
     NOTHING_PLAYING_TEXT,
+    NOT_SURE_REMOVED_TEXT,
     NOT_SURE_SAVED_TEXT,
     TOKEN_REJECTED_TEXT,
     UNAVAILABLE_TEXT,
@@ -36,6 +37,8 @@ def ssml(text):
 
 
 LIKE_REQUESTS = [req.launch(), req.intent("LikeSongIntent")]
+UNLIKE_REQUEST = req.intent("UnlikeSongIntent")
+CHANGE_REQUESTS = LIKE_REQUESTS + [UNLIKE_REQUEST]
 HELP_REQUESTS = [req.intent("AMAZON.HelpIntent"), req.intent("AMAZON.FallbackIntent")]
 QUIET_REQUESTS = [
     req.intent("AMAZON.StopIntent"),
@@ -87,15 +90,61 @@ def test_special_characters_are_escaped_for_ssml(valid_secrets, spotify):
     )
 
 
-def test_no_already_saved_check_is_made(valid_secrets, spotify_ok):
-    invoke(req.launch())
+@pytest.mark.parametrize("envelope", CHANGE_REQUESTS)
+def test_no_already_saved_check_is_made(envelope, valid_secrets, spotify_ok):
+    invoke(envelope)
     assert not [c for c in spotify_ok.mock.calls if "/me/library/contains" in c.request.url]
 
 
-# --- Things that can't be Liked ---
+@pytest.mark.parametrize("envelope", LIKE_REQUESTS)
+def test_like_never_removes(envelope, valid_secrets, spotify_ok):
+    invoke(envelope)
+    assert not spotify_ok.calls_to(responses.DELETE, LIBRARY_URL)
+
+
+# --- Unliking the Current Track ---
+
+@pytest.mark.parametrize("is_playing", [True, False], ids=["playing", "paused"])
+def test_unlike_removes_the_current_track_and_names_it(is_playing, valid_secrets, spotify):
+    spotify.token()
+    spotify.currently_playing(track_playing(name="Rock & Roll", is_playing=is_playing))
+    spotify.library_remove()
+
+    response = invoke(UNLIKE_REQUEST)
+
+    assert speech(response) == ssml("Removed Rock &amp; Roll by Queen from your Liked Songs.")
+    assert response["shouldEndSession"] is True
+    (call,) = spotify.calls_to(responses.DELETE, LIBRARY_URL)
+    assert call.request.params == {"uris": "spotify:track:2fuCquhmrzHpu5xcA1ci9x"}
+    assert not spotify.calls_to(responses.PUT, LIBRARY_URL)
+
+
+@pytest.mark.parametrize("failure, expected", [
+    pytest.param(dict(status=401), TOKEN_REJECTED_TEXT, id="401"),
+    pytest.param(dict(status=403), FORBIDDEN_TEXT, id="403"),
+    pytest.param(dict(status=500), UNAVAILABLE_TEXT, id="500"),
+    pytest.param(dict(exc=requests.exceptions.ConnectionError()), UNAVAILABLE_TEXT, id="connection-error"),
+    pytest.param(dict(exc=requests.exceptions.ReadTimeout()), NOT_SURE_REMOVED_TEXT, id="read-timeout-may-have-removed"),
+])
+def test_remove_failure_replies(failure, expected, valid_secrets, spotify):
+    spotify.token()
+    spotify.currently_playing()
+    spotify.fail(responses.DELETE, LIBRARY_URL, **failure)
+
+    response = invoke(UNLIKE_REQUEST)
+
+    assert speech(response) == ssml(expected)
+    assert response["shouldEndSession"] is True
+
+
+# --- Things that can't be Liked or Unliked ---
+
+def library_writes(spotify):
+    return spotify.calls_to(responses.PUT, LIBRARY_URL) + spotify.calls_to(responses.DELETE, LIBRARY_URL)
+
 
 @pytest.mark.parametrize("status", [204, 200], ids=["204", "empty-200"])
-@pytest.mark.parametrize("envelope", LIKE_REQUESTS)
+@pytest.mark.parametrize("envelope", CHANGE_REQUESTS)
 def test_nothing_playing(envelope, status, valid_secrets, spotify):
     spotify.token()
     spotify.nothing_playing(status=status)
@@ -104,7 +153,7 @@ def test_nothing_playing(envelope, status, valid_secrets, spotify):
 
     assert speech(response) == ssml(NOTHING_PLAYING_TEXT)
     assert response["shouldEndSession"] is True
-    assert not spotify.calls_to(responses.PUT, LIBRARY_URL)
+    assert not library_writes(spotify)
 
 
 @pytest.mark.parametrize("body", [
@@ -113,7 +162,7 @@ def test_nothing_playing(envelope, status, valid_secrets, spotify):
     pytest.param(fake_spotify.unknown(), id="unknown"),
     pytest.param(fake_spotify.local_file(), id="local-file"),
 ])
-@pytest.mark.parametrize("envelope", LIKE_REQUESTS)
+@pytest.mark.parametrize("envelope", CHANGE_REQUESTS)
 def test_not_a_track(envelope, body, valid_secrets, spotify):
     spotify.token()
     spotify.currently_playing(body)
@@ -122,7 +171,7 @@ def test_not_a_track(envelope, body, valid_secrets, spotify):
 
     assert speech(response) == ssml(NOT_A_TRACK_TEXT)
     assert response["shouldEndSession"] is True
-    assert not spotify.calls_to(responses.PUT, LIBRARY_URL)
+    assert not library_writes(spotify)
 
 
 def test_currently_playing_request_does_not_ask_for_episodes(valid_secrets, spotify_ok):
@@ -269,7 +318,7 @@ BROKEN_SECRETS = [
 
 
 @pytest.mark.parametrize("secrets", BROKEN_SECRETS)
-@pytest.mark.parametrize("envelope", LIKE_REQUESTS)
+@pytest.mark.parametrize("envelope", CHANGE_REQUESTS)
 def test_like_says_not_set_up_when_secrets_are_broken(envelope, secrets, write_secrets, spotify):
     if secrets is not None:
         write_secrets(secrets)
@@ -287,6 +336,10 @@ def test_help_and_fallback_speak_one_help_sentence(envelope):
     assert speech(invoke(envelope)) == ssml(HELP_TEXT)
 
 
+def test_help_mentions_removing():
+    assert "remove this song" in HELP_TEXT
+
+
 def test_fallback_never_calls_spotify(valid_secrets, spotify):
     invoke(req.intent("AMAZON.FallbackIntent"))
     assert not spotify.mock.calls
@@ -297,6 +350,6 @@ def test_stop_cancel_and_session_end_are_silent(envelope):
     assert speech(invoke(envelope)) is None
 
 
-@pytest.mark.parametrize("envelope", LIKE_REQUESTS + HELP_REQUESTS + QUIET_REQUESTS)
+@pytest.mark.parametrize("envelope", CHANGE_REQUESTS + HELP_REQUESTS + QUIET_REQUESTS)
 def test_every_response_ends_the_session(envelope, valid_secrets, spotify_ok):
     assert invoke(envelope)["shouldEndSession"] is True
