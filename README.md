@@ -6,6 +6,15 @@
 ![Alexa-hosted](https://img.shields.io/badge/Alexa-hosted-00CAFF?logo=amazonalexa&logoColor=white)
 ![MIT licence](https://img.shields.io/badge/licence-MIT-lightgrey)
 
+<p align="center">
+  <a href="assets/demo.mp4"><img src="assets/demo.jpg" width="720" alt="Watch the 22-second demo: you ask Alexa to like the song that's playing, and Song Saver adds it to your Liked Songs."></a>
+  <br><sub>▶ Watch the 22-second demo</sub>
+</p>
+
+<p align="center">
+  <img src="assets/how-it-works.svg" width="360" alt="You say 'like this song' or 'remove this song' to your Echo. Song Saver, your private Alexa-hosted skill, updates Liked Songs on Spotify, and Alexa says which song it saved or removed.">
+</p>
+
 > **You:** Alexa, ask song saver to like this song.
 >
 > **Alexa:** Saved Under Pressure by Queen to your Liked Songs.
